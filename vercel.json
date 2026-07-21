@@ -12,8 +12,7 @@
       "dest": "src/server.js"
     },
     {
-      "src": "/(CSS|JS)/(.*)",
-      "dest": "/public/$1/$2"
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
