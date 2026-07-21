@@ -3,7 +3,6 @@ const router = express.Router();
 const { detectPlatform } = require('../utils/platformDetector');
 const { generateFilename } = require('../utils/formatter');
 
-// Import services
 const instagram = require('../services/instagram');
 const tiktok = require('../services/tiktok');
 const youtube = require('../services/youtube');
@@ -16,13 +15,10 @@ const SERVICES = {
   youtube,
   twitter,
   facebook,
-  threads: instagram, // Threads similar to Instagram
+  threads: instagram,
 };
 
-/**
- * GET /api/download?url=
- * Fetch content metadata
- */
+// GET /api/download?url=
 router.get('/', async (req, res) => {
   const { url } = req.query;
   
@@ -34,7 +30,7 @@ router.get('/', async (req, res) => {
   if (!platform) {
     return res.status(400).json({ 
       success: false, 
-      message: 'Unsupported platform' 
+      message: 'Unsupported platform. Supported: Instagram, TikTok, YouTube, Twitter/X, Facebook, Threads' 
     });
   }
 
@@ -45,6 +41,12 @@ router.get('/', async (req, res) => {
     }
 
     const data = await service.fetchMetadata(url);
+    
+    // Tambahkan warning kalau demo mode
+    if (data.isDemo) {
+      data.warning = 'DEMO MODE: Add RAPIDAPI_KEY to .env for real downloads';
+    }
+    
     res.json(data);
 
   } catch (error) {
@@ -56,16 +58,13 @@ router.get('/', async (req, res) => {
   }
 });
 
-/**
- * POST /api/download/nowm
- * Fetch no-watermark version (TikTok/Instagram)
- */
+// POST /api/download/nowm
 router.post('/nowm', async (req, res) => {
   const { url, platform } = req.body;
   
   try {
     const service = SERVICES[platform];
-    if (!service.fetchNoWatermark) {
+    if (!service?.fetchNoWatermark) {
       return res.status(400).json({ message: 'No watermark removal not supported' });
     }
 
@@ -74,49 +73,6 @@ router.post('/nowm', async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ message: error.message });
-  }
-});
-
-/**
- * GET /api/download/file?url=&platform=&format=
- * Proxy download (optional - for CORS bypass)
- */
-router.get('/file', async (req, res) => {
-  const { url, platform, format } = req.query;
-  
-  try {
-    const service = SERVICES[platform];
-    const data = await service.fetchMetadata(url);
-    
-    const formatData = data.formats?.find(f => f.type === format);
-    if (!formatData?.url) {
-      return res.status(404).json({ message: 'Format not found' });
-    }
-
-    // Stream the file
-    const axios = require('axios');
-    const response = await axios({
-      method: 'GET',
-      url: formatData.url,
-      responseType: 'stream',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': url,
-      },
-      timeout: 30000,
-    });
-
-    const ext = format === 'mp3' ? 'mp3' : format === 'image' ? 'jpg' : 'mp4';
-    const filename = generateFilename(data.title, platform, ext);
-    
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
-    
-    response.data.pipe(res);
-
-  } catch (error) {
-    console.error('Download error:', error);
-    res.status(500).json({ message: 'Download failed' });
   }
 });
 
