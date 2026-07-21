@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { detectPlatform } = require('../utils/platformDetector');
-const { generateFilename } = require('../utils/formatter');
+
+// Asumsi formatter tidak dipakai di route ini, atau bisa di-import jika dipakai nanti
+// const { generateFilename } = require('../utils/formatter');
 
 const instagram = require('../services/instagram');
 const tiktok = require('../services/tiktok');
@@ -22,8 +24,8 @@ const SERVICES = {
 router.get('/', async (req, res) => {
   const { url } = req.query;
   
-  if (!url) {
-    return res.status(400).json({ success: false, message: 'URL is required' });
+  if (!url || typeof url !== 'string') {
+    return res.status(400).json({ success: false, message: 'URL is required and must be a string' });
   }
 
   const platform = detectPlatform(url);
@@ -37,7 +39,7 @@ router.get('/', async (req, res) => {
   try {
     const service = SERVICES[platform.key];
     if (!service) {
-      return res.status(400).json({ success: false, message: 'Service unavailable' });
+      return res.status(400).json({ success: false, message: 'Service unavailable for this platform' });
     }
 
     const data = await service.fetchMetadata(url);
@@ -47,11 +49,11 @@ router.get('/', async (req, res) => {
       data.warning = 'DEMO MODE: Add RAPIDAPI_KEY to .env for real downloads';
     }
     
-    res.json(data);
+    return res.status(200).json(data);
 
   } catch (error) {
-    console.error('Fetch error:', error);
-    res.status(500).json({ 
+    console.error(`Fetch error for ${url}:`, error.message);
+    return res.status(500).json({ 
       success: false, 
       message: error.message || 'Failed to fetch content' 
     });
@@ -62,17 +64,32 @@ router.get('/', async (req, res) => {
 router.post('/nowm', async (req, res) => {
   const { url, platform } = req.body;
   
+  // Validasi input untuk mencegah crash
+  if (!url || !platform) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'URL and platform are required in the request body' 
+    });
+  }
+
   try {
-    const service = SERVICES[platform];
-    if (!service?.fetchNoWatermark) {
-      return res.status(400).json({ message: 'No watermark removal not supported' });
+    const service = SERVICES[platform.toLowerCase()];
+    if (!service || !service.fetchNoWatermark) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No-watermark removal is not supported for this platform' 
+      });
     }
 
     const data = await service.fetchNoWatermark(url);
-    res.json(data);
+    return res.status(200).json(data);
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(`NoWM fetch error for ${url}:`, error.message);
+    return res.status(500).json({ 
+      success: false, // Menambahkan success: false agar seragam dengan GET
+      message: error.message || 'Failed to fetch no-watermark content'
+    });
   }
 });
 
