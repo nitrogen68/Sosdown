@@ -17,14 +17,12 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Serve static files (dev only, Vercel handles this via routes)
-if (process.env.NODE_ENV !== 'production') {
-  app.use(express.static(path.join(__dirname, '../public')));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/index.html'));
-  });
-}
+// ✅ SELALU serve static files — jangan cek NODE_ENV!
+app.use(express.static(path.join(__dirname, '../public')));
 
-// ❌ JANGAN pake app.listen() di Vercel!
-// ✅ Export app untuk serverless
+// ✅ SPA fallback — selalu kirim index.html untuk non-API routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
 module.exports = app;
