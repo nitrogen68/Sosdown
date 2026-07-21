@@ -1,1 +1,152 @@
 
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Social Downloader — All-in-One</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬇</text></svg>">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="brand-icon">⬇</div>
+        <div>
+          <h1>Social Downloader</h1>
+          <p>All-in-one media downloader</p>
+        </div>
+      </div>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+        <svg class="sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <svg class="moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </header>
+
+    <!-- Platform Tabs -->
+    <div class="platform-tabs" id="platformTabs">
+      <button class="tab active" data-platform="all">All</button>
+      <button class="tab" data-platform="instagram">Instagram</button>
+      <button class="tab" data-platform="tiktok">TikTok</button>
+      <button class="tab" data-platform="youtube">YouTube</button>
+      <button class="tab" data-platform="twitter">Twitter/X</button>
+      <button class="tab" data-platform="facebook">Facebook</button>
+      <button class="tab" data-platform="threads">Threads</button>
+    </div>
+
+    <!-- Input Card -->
+    <div class="card input-card">
+      <div class="url-box">
+        <input 
+          type="url" 
+          class="url-input" 
+          id="urlInput" 
+          placeholder="Paste URL here... (e.g. https://instagram.com/p/...)"
+          autocomplete="off"
+        >
+        <button class="btn btn-primary" id="fetchBtn" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Fetch</span>
+        </button>
+      </div>
+      <div class="detect-badge" id="detectBadge"></div>
+    </div>
+
+    <!-- Preview Card -->
+    <div class="card preview-card" id="previewCard" style="display:none;">
+      <div class="thumb-wrap">
+        <img class="thumb-img" id="previewThumb" src="" alt="Thumbnail" loading="lazy">
+        <span class="duration-chip" id="previewDuration"></span>
+      </div>
+      <div class="preview-body">
+        <h3 class="preview-title" id="previewTitle"></h3>
+        <div class="preview-meta">
+          <img class="author-avatar" id="previewAvatar" src="" alt="">
+          <span id="previewAuthor"></span>
+          <span class="dot">•</span>
+          <span class="platform-tag" id="previewPlatform"></span>
+        </div>
+        <div class="format-grid" id="formatGrid">
+          <button class="format-btn" data-format="mp4hd">
+            <span class="fmt-icon video">🎬</span>
+            <div class="fmt-info">
+              <span class="fmt-label">Video MP4 HD</span>
+              <span class="fmt-size" id="size-mp4hd">~15 MB</span>
+            </div>
+          </button>
+          <button class="format-btn" data-format="mp4sd">
+            <span class="fmt-icon video">📹</span>
+            <div class="fmt-info">
+              <span class="fmt-label">Video MP4 SD</span>
+              <span class="fmt-size" id="size-mp4sd">~5 MB</span>
+            </div>
+          </button>
+          <button class="format-btn" data-format="mp3">
+            <span class="fmt-icon audio">🎵</span>
+            <div class="fmt-info">
+              <span class="fmt-label">Audio MP3</span>
+              <span class="fmt-size" id="size-mp3">~2 MB</span>
+            </div>
+          </button>
+          <button class="format-btn" data-format="image">
+            <span class="fmt-icon image">🖼</span>
+            <div class="fmt-info">
+              <span class="fmt-label">Image HD</span>
+              <span class="fmt-size" id="size-image">~1 MB</span>
+            </div>
+          </button>
+          <button class="format-btn no-watermark" data-format="nowm" id="nowmBtn" style="display:none;">
+            <span class="fmt-icon nowm">✨</span>
+            <div class="fmt-info">
+              <span class="fmt-label">No Watermark</span>
+              <span class="fmt-size">Original quality</span>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error Card -->
+    <div class="card error-card" id="errorCard" style="display:none;">
+      <div class="error-icon">⚠️</div>
+      <h3 id="errorTitle">Something went wrong</h3>
+      <p id="errorMessage">Please check the URL and try again.</p>
+      <button class="btn btn-outline" id="retryBtn">Try Again</button>
+    </div>
+
+    <!-- History Card -->
+    <div class="card history-card">
+      <div class="history-header">
+        <h2>📋 Download history</h2>
+        <button class="btn btn-ghost" id="clearHistory">Clear all</button>
+      </div>
+      <div class="history-list" id="historyList">
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <p>No downloads yet</p>
+          <span>Paste a URL above to get started</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Disclaimer -->
+    <p class="disclaimer">
+      <strong>Educational & non-commercial use only.</strong><br>
+      Download only public content you own or have permission to download. Respect copyright laws.
+    </p>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <p>Fetching content...</p>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
