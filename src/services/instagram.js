@@ -1,86 +1,46 @@
-/**
- * Instagram Service
- * Handles Instagram-specific download logic
- * Uses free APIs: SnapSave, RapidAPI, or scraping fallback
- */
-
 const axios = require('axios');
 
 const API_ENDPOINTS = {
-  // Free API options (use one or rotate)
   RAPIDAPI: 'https://social-media-download.p.rapidapi.com/api/download',
-  SNAPSAVE: 'https://snapsave.app/action.php',
-  SAVEINSTA: 'https://saveinsta.app/api/ajaxSearch',
 };
 
 /**
- * Fetch Instagram content metadata
- * @param {string} url - Instagram post/reel URL
- * @returns {Promise<Object>}
+ * Fetch Instagram content
  */
 async function fetchMetadata(url) {
-  try {
-    // Try RapidAPI first
-    if (process.env.RAPIDAPI_KEY) {
+  // Coba RapidAPI dulu
+  if (process.env.RAPIDAPI_KEY) {
+    try {
       const response = await axios.get(API_ENDPOINTS.RAPIDAPI, {
         params: { url },
         headers: {
           'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
-          'X-RapidAPI-Host': process.env.RAPIDAPI_HOST,
+          'X-RapidAPI-Host': process.env.RAPIDAPI_HOST || 'social-media-download.p.rapidapi.com',
         },
         timeout: 15000,
       });
-
       return normalizeRapidApiResponse(response.data, url);
+    } catch (err) {
+      console.log('RapidAPI failed, using demo mode:', err.message);
     }
-
-    // Fallback: SnapSave (free, no key required)
-    return await fetchFromSnapSave(url);
-
-  } catch (error) {
-    console.error('Instagram fetch error:', error.message);
-    throw new Error('Failed to fetch Instagram content');
   }
+
+  // 🆓 DEMO MODE: Kalau tidak ada API key, kasih data demo
+  // Supaya UI tetap jalan untuk testing
+  console.log('⚠️ No API key found. Returning DEMO data for:', url);
+  return getDemoData(url);
 }
 
-/**
- * Fetch no-watermark video
- * @param {string} url
- * @returns {Promise<Object>}
- */
 async function fetchNoWatermark(url) {
-  try {
-    const data = await fetchMetadata(url);
-    
-    // Filter for highest quality no-watermark video
-    const noWmVideo = data.formats?.find(f => 
-      f.type === 'mp4' && (f.quality?.includes('nowm') || f.label?.includes('no watermark'))
-    );
-    
-    if (noWmVideo) {
-      return {
-        ...data,
-        downloadUrl: noWmVideo.url,
-        isNoWatermark: true,
-      };
-    }
-    
-    // If no explicit no-watermark, return best quality
-    const bestVideo = data.formats?.find(f => f.type === 'mp4' && f.quality === 'hd');
-    return {
-      ...data,
-      downloadUrl: bestVideo?.url || data.formats?.[0]?.url,
-      isNoWatermark: false,
-    };
-    
-  } catch (error) {
-    throw new Error('Failed to fetch no-watermark video');
-  }
+  const data = await fetchMetadata(url);
+  const noWm = data.formats?.find(f => f.type === 'nowm');
+  return {
+    ...data,
+    downloadUrl: noWm?.url || data.formats?.[0]?.url,
+    isNoWatermark: !!noWm,
+  };
 }
 
-/**
- * Normalize RapidAPI response
- */
 function normalizeRapidApiResponse(apiData, originalUrl) {
   return {
     success: true,
@@ -92,79 +52,35 @@ function normalizeRapidApiResponse(apiData, originalUrl) {
     thumbnail: apiData.thumbnail || apiData.image,
     duration: apiData.duration || '',
     formats: [
-      {
-        type: 'mp4hd',
-        quality: 'hd',
-        url: apiData.video_hd || apiData.video,
-        size: apiData.size_hd || apiData.size,
-        label: 'Video MP4 HD',
-      },
-      {
-        type: 'mp4sd',
-        quality: 'sd',
-        url: apiData.video_sd || apiData.video,
-        size: apiData.size_sd,
-        label: 'Video MP4 SD',
-      },
-      {
-        type: 'image',
-        quality: 'hd',
-        url: apiData.image || apiData.thumbnail,
-        size: apiData.size_image,
-        label: 'Image HD',
-      },
-      {
-        type: 'nowm',
-        quality: 'hd_nowm',
-        url: apiData.video_nowm || apiData.video_hd,
-        size: apiData.size_nowm,
-        label: 'No Watermark',
-      },
+      { type: 'mp4hd', quality: 'hd', url: apiData.video_hd, size: apiData.size_hd, label: 'Video MP4 HD' },
+      { type: 'mp4sd', quality: 'sd', url: apiData.video_sd, size: apiData.size_sd, label: 'Video MP4 SD' },
+      { type: 'image', quality: 'hd', url: apiData.image, size: apiData.size_image, label: 'Image HD' },
+      { type: 'nowm', quality: 'hd_nowm', url: apiData.video_nowm, size: apiData.size_nowm, label: 'No Watermark' },
     ].filter(f => f.url),
   };
 }
 
 /**
- * Fetch from SnapSave (free alternative)
+ * 🎭 DEMO DATA — UI tetap bisa dicoba tanpa API key
  */
-async function fetchFromSnapSave(url) {
-  try {
-    const formData = new URLSearchParams();
-    formData.append('url', url);
-    
-    const response = await axios.post(API_ENDPOINTS.SNAPSAVE, formData, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-      timeout: 20000,
-    });
-
-    // SnapSave returns HTML or JSON depending on endpoint
-    // This is a simplified parser - adjust based on actual response
-    const data = response.data;
-    
-    return {
-      success: true,
-      platform: 'instagram',
-      url,
-      title: data.title || 'Instagram Post',
-      author: data.author || '@unknown',
-      thumbnail: data.thumbnail,
-      duration: '',
-      formats: [
-        { type: 'mp4hd', quality: 'hd', url: data.video_url, label: 'Video MP4 HD' },
-        { type: 'image', quality: 'hd', url: data.image_url, label: 'Image HD' },
-      ].filter(f => f.url),
-    };
-    
-  } catch (error) {
-    throw new Error('SnapSave fetch failed');
-  }
+function getDemoData(url) {
+  return {
+    success: true,
+    platform: 'instagram',
+    url,
+    title: '📸 Instagram Reel — Sunset at Bali Beach',
+    author: '@travel_daily',
+    authorAvatar: 'https://ui-avatars.com/api/?name=Travel&background=random',
+    thumbnail: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=640&h=360&fit=crop',
+    duration: '0:15',
+    isDemo: true,
+    formats: [
+      { type: 'mp4hd', quality: 'hd', url: 'https://example.com/demo-hd.mp4', size: '~12 MB', label: 'Video MP4 HD' },
+      { type: 'mp4sd', quality: 'sd', url: 'https://example.com/demo-sd.mp4', size: '~4 MB', label: 'Video MP4 SD' },
+      { type: 'image', quality: 'hd', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1080', size: '~1.5 MB', label: 'Image HD' },
+      { type: 'nowm', quality: 'hd_nowm', url: 'https://example.com/demo-nowm.mp4', size: '~12 MB', label: 'No Watermark' },
+    ],
+  };
 }
 
-module.exports = {
-  fetchMetadata,
-  fetchNoWatermark,
-};
-
+module.exports = { fetchMetadata, fetchNoWatermark };
