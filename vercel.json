@@ -12,7 +12,7 @@
       "dest": "src/server.js"
     },
     {
-      "src": "/(css|js)/(.*)",
+      "src": "/(CSS|JS)/(.*)",
       "dest": "/public/$1/$2"
     },
     {
